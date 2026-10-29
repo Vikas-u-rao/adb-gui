@@ -34,18 +34,20 @@ from datetime import datetime
 
 from PySide6 import __version__ as PYSIDE_VERSION
 from PySide6.QtCore import (
-    QObject, QRunnable, QSettings, QSize, QThreadPool, QTimer, Qt, Signal, Slot,
+    QObject, QPointF, QRectF, QRunnable, QSettings, QSize, QThreadPool, QTimer,
+    Qt, Signal, Slot,
 )
 from PySide6.QtGui import (
-    QAction, QFontDatabase, QKeySequence, QPixmap, QShortcut,
+    QAction, QColor, QFontDatabase, QIcon, QKeySequence, QPainter,
+    QPainterPath, QPalette, QPen, QPixmap, QShortcut,
 )
 from PySide6.QtWidgets import (
     QAbstractItemView, QApplication, QCheckBox, QComboBox, QDialog,
     QDialogButtonBox, QFileDialog, QFormLayout, QGroupBox, QHBoxLayout,
     QHeaderView, QInputDialog, QLabel, QLineEdit, QListWidget, QListWidgetItem,
-    QMainWindow, QMenu, QMessageBox, QPlainTextEdit, QPushButton, QSplitter,
-    QStyle, QTableWidget, QTableWidgetItem, QTabWidget, QToolBar, QToolButton,
-    QVBoxLayout, QWidget,
+    QMainWindow, QMenu, QMessageBox, QPlainTextEdit, QPushButton, QSizePolicy,
+    QSplitter, QStyle, QTableWidget, QTableWidgetItem, QTabWidget, QToolBar,
+    QToolButton, QVBoxLayout, QWidget,
 )
 
 from adb_core import (
@@ -171,6 +173,170 @@ def monospace(widget):
     widget.setFont(font)
 
 
+def dim_label(text, parent=None):
+    label = QLabel(text, parent)
+    label.setWordWrap(True)
+    label.setStyleSheet(
+        f"color: {label.palette().color(QPalette.ColorRole.PlaceholderText).name()};")
+    return label
+
+
+def is_dark(widget):
+    return widget.palette().color(QPalette.ColorRole.Window).lightness() < 128
+
+
+def danger_color(widget):
+    return "#f85149" if is_dark(widget) else "#cf222e"
+
+
+def state_colors(widget):
+    if is_dark(widget):
+        return {
+            "device": ("#3fb950", "connected"),
+            "unauthorized": ("#d29922", "unauthorized"),
+            "offline": ("#8b949e", "offline"),
+            "no permissions": ("#f85149", "no permission"),
+            "recovery": ("#58a6ff", "recovery"),
+            "bootloader": ("#58a6ff", "bootloader"),
+            "sideload": ("#58a6ff", "sideload"),
+        }
+    return {
+        "device": ("#1a7f37", "connected"),
+        "unauthorized": ("#9a6700", "unauthorized"),
+        "offline": ("#57606a", "offline"),
+        "no permissions": ("#cf222e", "no permission"),
+        "recovery": ("#0969da", "recovery"),
+        "bootloader": ("#0969da", "bootloader"),
+        "sideload": ("#0969da", "sideload"),
+    }
+
+
+def _glyph_path(painter, name):
+    """Draw one icon in a 24x24 coordinate box."""
+    if name == "folder":
+        path = QPainterPath()
+        path.moveTo(3.5, 19.5)
+        path.lineTo(3.5, 6.5)
+        path.lineTo(9.5, 6.5)
+        path.lineTo(12.0, 9.0)
+        path.lineTo(20.5, 9.0)
+        path.lineTo(20.5, 19.5)
+        path.closeSubpath()
+        painter.drawPath(path)
+    elif name == "refresh":
+        painter.drawArc(QRectF(5.0, 5.0, 14.0, 14.0), 120 * 16, 300 * 16)
+        path = QPainterPath()
+        path.moveTo(14.2, 3.2)
+        path.lineTo(18.8, 5.6)
+        path.lineTo(14.8, 8.3)
+        path.closeSubpath()
+        painter.save()
+        painter.setBrush(painter.pen().color())
+        painter.drawPath(path)
+        painter.restore()
+    elif name == "camera":
+        painter.drawRoundedRect(QRectF(3.0, 8.0, 18.0, 12.0), 2.5, 2.5)
+        path = QPainterPath()
+        path.moveTo(8.0, 8.0)
+        path.lineTo(9.3, 5.5)
+        path.lineTo(14.7, 5.5)
+        path.lineTo(16.0, 8.0)
+        painter.drawPath(path)
+        painter.drawEllipse(QPointF(12.0, 14.0), 4.0, 4.0)
+    elif name == "download":
+        painter.drawLine(QPointF(12.0, 3.5), QPointF(12.0, 14.0))
+        path = QPainterPath()
+        path.moveTo(7.5, 9.5)
+        path.lineTo(12.0, 14.0)
+        path.lineTo(16.5, 9.5)
+        painter.drawPath(path)
+        path = QPainterPath()
+        path.moveTo(4.0, 16.5)
+        path.lineTo(4.0, 20.0)
+        path.lineTo(20.0, 20.0)
+        path.lineTo(20.0, 16.5)
+        painter.drawPath(path)
+    elif name == "power":
+        painter.drawArc(QRectF(5.5, 5.5, 13.0, 13.0), 120 * 16, 300 * 16)
+        painter.drawLine(QPointF(12.0, 3.5), QPointF(12.0, 11.5))
+    elif name == "info":
+        painter.drawEllipse(QPointF(12.0, 12.0), 8.8, 8.8)
+        painter.save()
+        painter.setBrush(painter.pen().color())
+        painter.drawEllipse(QPointF(12.0, 7.6), 1.1, 1.1)
+        painter.restore()
+        painter.drawLine(QPointF(12.0, 11.0), QPointF(12.0, 17.2))
+    elif name == "play":
+        path = QPainterPath()
+        path.moveTo(8.0, 5.0)
+        path.lineTo(19.0, 12.0)
+        path.lineTo(8.0, 19.0)
+        path.closeSubpath()
+        painter.save()
+        painter.setBrush(painter.pen().color())
+        painter.drawPath(path)
+        painter.restore()
+    elif name == "stop":
+        painter.save()
+        painter.setBrush(painter.pen().color())
+        painter.drawRoundedRect(QRectF(7.0, 7.0, 10.0, 10.0), 1.5, 1.5)
+        painter.restore()
+    elif name == "save":
+        painter.drawRoundedRect(QRectF(4.0, 4.0, 16.0, 16.0), 2.0, 2.0)
+        path = QPainterPath()
+        path.moveTo(8.0, 4.0)
+        path.lineTo(8.0, 10.0)
+        path.lineTo(16.0, 10.0)
+        path.lineTo(16.0, 4.0)
+        painter.drawPath(path)
+        painter.drawRect(QRectF(7.5, 13.0, 9.0, 7.0))
+    elif name == "trash":
+        painter.drawLine(QPointF(9.0, 5.0), QPointF(15.0, 5.0))
+        painter.drawLine(QPointF(4.5, 8.0), QPointF(19.5, 8.0))
+        path = QPainterPath()
+        path.moveTo(7.0, 8.0)
+        path.lineTo(8.0, 20.0)
+        path.lineTo(16.0, 20.0)
+        path.lineTo(17.0, 8.0)
+        painter.drawPath(path)
+        painter.drawLine(QPointF(10.5, 11.0), QPointF(10.5, 17.0))
+        painter.drawLine(QPointF(13.5, 11.0), QPointF(13.5, 17.0))
+    elif name == "up":
+        painter.drawLine(QPointF(12.0, 4.0), QPointF(12.0, 20.0))
+        path = QPainterPath()
+        path.moveTo(6.0, 10.0)
+        path.lineTo(12.0, 4.0)
+        path.lineTo(18.0, 10.0)
+        painter.drawPath(path)
+    elif name == "clear":
+        painter.drawEllipse(QPointF(12.0, 12.0), 8.5, 8.5)
+        painter.drawLine(QPointF(9.0, 9.0), QPointF(15.0, 15.0))
+        painter.drawLine(QPointF(15.0, 9.0), QPointF(9.0, 15.0))
+    elif name == "copy":
+        painter.drawRoundedRect(QRectF(4.0, 4.0, 11.0, 13.0), 2.0, 2.0)
+        painter.drawRoundedRect(QRectF(9.0, 8.0, 11.0, 13.0), 2.0, 2.0)
+
+
+def glyph_icon(name, color):
+    icon = QIcon()
+    for size in (16, 20, 24, 32, 48, 64):
+        pixmap = QPixmap(size, size)
+        pixmap.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        painter.scale(size / 24.0, size / 24.0)
+        pen = QPen(QColor(color))
+        pen.setWidthF(1.7)
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        painter.setPen(pen)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        _glyph_path(painter, name)
+        painter.end()
+        icon.addPixmap(pixmap)
+    return icon
+
+
 # --------------------------------------------------------------------------
 # Small widgets
 # --------------------------------------------------------------------------
@@ -198,6 +364,113 @@ class HistoryLineEdit(QLineEdit):
             self.setText("" if self._index == len(self.history) else self.history[self._index])
             return
         super().keyPressEvent(event)
+
+
+class ElidedLabel(QLabel):
+    """QLabel that elides its text instead of forcing the layout wider."""
+
+    def __init__(self, text="", mode=Qt.TextElideMode.ElideMiddle, parent=None):
+        super().__init__(parent)
+        self._full_text = text
+        self._mode = mode
+        self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        self.setMinimumWidth(0)
+        self.setToolTip(text)
+        self.setText(text)
+
+    def setText(self, text):
+        self._full_text = text or ""
+        self.setToolTip(self._full_text)
+        super().setText(self._full_text)
+        self._apply_elide()
+
+    def minimumSizeHint(self):
+        hint = super().minimumSizeHint()
+        return QSize(0, hint.height())
+
+    def sizeHint(self):
+        hint = super().sizeHint()
+        width = self.fontMetrics().horizontalAdvance(self._full_text) + 2
+        return QSize(min(width, self.maximumWidth()), hint.height())
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._apply_elide()
+
+    def _apply_elide(self):
+        if self.width() <= 0:
+            return
+        text = self.fontMetrics().elidedText(self._full_text, self._mode, self.width())
+        if text != super().text():
+            super().setText(text)
+
+
+class DeviceRow(QWidget):
+    """Two-line device card: model, serial and a colored state badge."""
+
+    def __init__(self, dev, parent=None):
+        super().__init__(parent)
+        self._state_color, label = state_colors(self).get(
+            dev.state, ("#8b949e", dev.state))
+        self._selected = False
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(8, 7, 10, 7)
+        layout.setSpacing(8)
+
+        self._dot = QLabel("\u25cf")
+        self._dot.setFixedWidth(12)
+        self._dot.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
+        layout.addWidget(self._dot)
+
+        text = QVBoxLayout()
+        text.setSpacing(1)
+        self._name = ElidedLabel(dev.display_name or "Unknown device",
+                                 Qt.TextElideMode.ElideRight)
+        name_font = self._name.font()
+        name_font.setBold(True)
+        self._name.setFont(name_font)
+        self._serial = ElidedLabel(dev.serial, Qt.TextElideMode.ElideMiddle)
+        serial_font = self._serial.font()
+        serial_font.setPointSizeF(max(7.5, serial_font.pointSizeF() - 1.0))
+        self._serial.setFont(serial_font)
+        text.addWidget(self._name)
+        text.addWidget(self._serial)
+        layout.addLayout(text, 1)
+
+        self._state = QLabel(label)
+        self._state.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop)
+        layout.addWidget(self._state)
+
+        detail = [f"serial: {dev.serial}", f"state: {dev.state}"]
+        for name, value in (("model", dev.model), ("product", dev.product),
+                            ("device", dev.device), ("usb", dev.transport)):
+            if value:
+                detail.append(f"{name}: {value}")
+        if dev.extra:
+            detail.append(dev.extra)
+        self.setToolTip("\n".join(detail))
+        self._apply_colors()
+
+    def set_selected(self, selected):
+        if self._selected != selected:
+            self._selected = selected
+            self._apply_colors()
+
+    def _apply_colors(self):
+        if self._selected:
+            text_color = self.palette().color(QPalette.ColorRole.HighlightedText).name()
+            serial_color = text_color
+            dot_color = text_color
+        else:
+            text_color = self.palette().color(QPalette.ColorRole.WindowText).name()
+            serial_color = self.palette().color(QPalette.ColorRole.PlaceholderText).name()
+            dot_color = self._state_color
+        self._name.setStyleSheet(f"color: {text_color};")
+        self._serial.setStyleSheet(f"color: {serial_color};")
+        self._state.setStyleSheet(
+            f"color: {text_color}; font-size: 11px; font-weight: 600;")
+        self._dot.setStyleSheet(f"color: {dot_color}; font-size: 14px;")
 
 
 class FileTable(QTableWidget):
@@ -351,13 +624,15 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle(APP_NAME)
         self.setWindowIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon))
-        self.resize(1180, 760)
+        self.resize(1240, 800)
+        self.setMinimumSize(980, 640)
 
         self.pool = QThreadPool.globalInstance()
         settings = QSettings()
         self.adb = Adb(str(settings.value("adb_path", "") or ""))
 
         self.serial = None
+        self.selected_device = None
         self.cwd = "/sdcard"
         self.shell_cwd = "/sdcard"
         self.entries = []
@@ -368,13 +643,17 @@ class MainWindow(QMainWindow):
         self._tasks = {}
         self._workers = {}
 
+        self._danger = danger_color(self)
+        self._icon = lambda name: glyph_icon(
+            name, self.palette().color(QPalette.ColorRole.WindowText).name())
+        self._danger_icon = lambda name: glyph_icon(name, self._danger)
+
         self._dir_gen = 0
         self._apps_loaded = False
         self._apps_loading = False
         self._all_packages = []
 
         self._logcat_lines = deque(maxlen=20000)
-        self._logcat_partial = ""
         self._logcat_failed = False
 
         self._build_actions()
@@ -404,14 +683,18 @@ class MainWindow(QMainWindow):
 
     def _build_actions(self):
         self.act_set_adb = self._action("Set adb path...", self.pick_adb)
+        self.act_set_adb.setIcon(self._icon("folder"))
         self.act_start_server = self._action("Start adb server", self.start_server)
         self.act_kill_server = self._action("Kill adb server", self.kill_server)
         self.act_refresh = self._action("Refresh devices", self.refresh_devices, "F5")
-        self.act_refresh.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_BrowserReload))
+        self.act_refresh.setIcon(self._icon("refresh"))
         self.act_disconnect = self._action("Disconnect wireless device", self.disconnect_device)
         self.act_screenshot = self._action("Screenshot", self.take_screenshot, "Ctrl+Shift+S")
+        self.act_screenshot.setIcon(self._icon("camera"))
         self.act_install = self._action("Install APK...", self.install_apk, "Ctrl+I")
+        self.act_install.setIcon(self._icon("download"))
         self.act_device_info = self._action("Device info", self.show_device_info, "Ctrl+D")
+        self.act_device_info.setIcon(self._icon("info"))
         self.act_quit = self._action("Exit", self.close, "Ctrl+Q")
 
     def _build_menus(self):
@@ -460,7 +743,11 @@ class MainWindow(QMainWindow):
 
         reboot_button = QToolButton()
         reboot_button.setText("Reboot")
+        reboot_button.setIcon(self._icon("power"))
+        reboot_button.setToolButtonStyle(
+            Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         reboot_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        reboot_button.setToolTip("Reboot the device")
         reboot_menu = QMenu(reboot_button)
         self._fill_reboot_menu(reboot_menu)
         reboot_button.setMenu(reboot_menu)
@@ -475,6 +762,8 @@ class MainWindow(QMainWindow):
         self.top_split.addWidget(self._build_side_panel())
 
         self.tabs = QTabWidget()
+        self.tabs.setDocumentMode(True)
+        self.tabs.setIconSize(QSize(16, 16))
         self.files_tab = self._build_files_tab()
         self.shell_tab = self._build_shell_tab()
         self.apps_tab = self._build_apps_tab()
@@ -487,7 +776,7 @@ class MainWindow(QMainWindow):
         self.top_split.addWidget(self.tabs)
         self.top_split.setStretchFactor(0, 0)
         self.top_split.setStretchFactor(1, 1)
-        self.top_split.setSizes([310, 870])
+        self.top_split.setSizes([340, 900])
         central.addWidget(self.top_split)
         central.addWidget(self._build_log_panel())
         central.setSizes([560, 180])
@@ -497,7 +786,9 @@ class MainWindow(QMainWindow):
 
         status = self.statusBar()
         self.status = status
-        self.device_label = QLabel("No device selected")
+        self.device_label = ElidedLabel(
+            "No device selected", Qt.TextElideMode.ElideMiddle)
+        self.device_label.setMaximumWidth(560)
         status.addPermanentWidget(self.device_label)
 
         self._shortcuts = [
@@ -509,18 +800,24 @@ class MainWindow(QMainWindow):
 
     def _build_side_panel(self):
         panel = QWidget()
+        panel.setMinimumWidth(320)
         layout = QVBoxLayout(panel)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setSpacing(10)
 
         devices_box = QGroupBox("Devices")
         devices_layout = QVBoxLayout(devices_box)
         self.device_list = QListWidget()
+        self.device_list.setSpacing(2)
+        self.device_list.setUniformItemSizes(True)
+        self.device_list.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.device_list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.device_list.currentItemChanged.connect(self.on_device_selected)
         devices_layout.addWidget(self.device_list, 1)
 
         row = QHBoxLayout()
         refresh = QPushButton("Refresh")
-        refresh.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_BrowserReload))
+        refresh.setIcon(self._icon("refresh"))
         refresh.clicked.connect(lambda: self.refresh_devices())
         row.addWidget(refresh)
         disconnect = QPushButton("Disconnect")
@@ -531,6 +828,7 @@ class MainWindow(QMainWindow):
 
         wifi_box = QGroupBox("Wireless")
         wifi_layout = QVBoxLayout(wifi_box)
+        wifi_layout.setSpacing(6)
         wifi_layout.addWidget(QLabel("Connect (ip:port)"))
         self.connect_edit = QLineEdit()
         self.connect_edit.setPlaceholderText("192.168.1.20:5555")
@@ -552,10 +850,8 @@ class MainWindow(QMainWindow):
         pair.clicked.connect(self.pair_device)
         wifi_layout.addWidget(pair)
 
-        hint = QLabel("Enable Wireless debugging on the phone, then use the "
-                      "pairing ip:port and code shown there.")
-        hint.setWordWrap(True)
-        hint.setStyleSheet("color: palette(mid);")
+        hint = dim_label("Enable Wireless debugging on the phone, then use the "
+                         "pairing ip:port and code shown there.")
         wifi_layout.addWidget(hint)
         layout.addWidget(wifi_box)
         return panel
@@ -563,16 +859,18 @@ class MainWindow(QMainWindow):
     def _build_files_tab(self):
         page = QWidget()
         layout = QVBoxLayout(page)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(8)
 
         nav = QHBoxLayout()
+        nav.setSpacing(6)
         up = QPushButton()
-        up.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_ArrowUp))
+        up.setIcon(self._icon("up"))
         up.setToolTip("Up one folder (Backspace)")
         up.clicked.connect(self.go_up)
         nav.addWidget(up)
         reload_button = QPushButton()
-        reload_button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_BrowserReload))
+        reload_button.setIcon(self._icon("refresh"))
         reload_button.setToolTip("Reload (F5 refreshes devices)")
         reload_button.clicked.connect(lambda: self.load_dir())
         nav.addWidget(reload_button)
@@ -589,15 +887,30 @@ class MainWindow(QMainWindow):
         layout.addLayout(nav)
 
         self.file_table = FileTable()
-        self.file_table.setHorizontalHeaderLabels(["Name", "Size", "Modified"])
+        self.file_table.setHorizontalHeaderLabels(["Name", "Size", "\u00a0\u00a0Modified"])
+        self.file_table.horizontalHeaderItem(0).setTextAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        self.file_table.horizontalHeaderItem(1).setTextAlignment(
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self.file_table.horizontalHeaderItem(2).setTextAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         header = self.file_table.horizontalHeader()
+        header.setDefaultAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
+        header.resizeSection(1, 96)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
+        header.resizeSection(2, 150)
+        header.setHighlightSections(False)
         self.file_table.verticalHeader().setVisible(False)
+        self.file_table.verticalHeader().setDefaultSectionSize(27)
         self.file_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.file_table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.file_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.file_table.setAlternatingRowColors(True)
+        self.file_table.setShowGrid(False)
+        self.file_table.setWordWrap(False)
         self.file_table.cellDoubleClicked.connect(self.on_open)
         self.file_table.files_dropped.connect(self.push_paths)
         self.file_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -616,6 +929,7 @@ class MainWindow(QMainWindow):
         self._file_shortcuts = [delete_shortcut, back_shortcut, enter_shortcut]
 
         actions = QHBoxLayout()
+        actions.setSpacing(6)
         for label, slot in (("Pull to PC", self.pull_selected),
                             ("Push file(s)", self.push_files),
                             ("Push folder", self.push_folder),
@@ -624,6 +938,9 @@ class MainWindow(QMainWindow):
                             ("Delete", self.delete_selected)):
             button = QPushButton(label)
             button.clicked.connect(slot)
+            if label == "Delete":
+                button.setStyleSheet(f"color: {self._danger};")
+                button.setIcon(self._danger_icon("trash"))
             actions.addWidget(button)
         layout.addLayout(actions)
         return page
@@ -631,11 +948,13 @@ class MainWindow(QMainWindow):
     def _build_shell_tab(self):
         page = QWidget()
         layout = QVBoxLayout(page)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(8)
 
         self.shell_output = QPlainTextEdit()
         self.shell_output.setReadOnly(True)
         self.shell_output.setMaximumBlockCount(10000)
+        self.shell_output.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
         self.shell_output.setPlaceholderText(
             "Commands run with adb shell. This is a raw shell, so pipes and ; work."
         )
@@ -643,6 +962,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.shell_output, 1)
 
         row = QHBoxLayout()
+        row.setSpacing(6)
         self.shell_prompt = QLabel(f"{self.shell_cwd} $")
         monospace(self.shell_prompt)
         row.addWidget(self.shell_prompt)
@@ -652,14 +972,17 @@ class MainWindow(QMainWindow):
         monospace(self.shell_input)
         row.addWidget(self.shell_input, 1)
         run = QPushButton("Run")
+        run.setIcon(self._icon("play"))
         run.clicked.connect(self.run_shell)
         row.addWidget(run)
         clear = QPushButton("Clear")
+        clear.setIcon(self._icon("clear"))
         clear.clicked.connect(lambda: self.shell_output.clear())
         row.addWidget(clear)
         layout.addLayout(row)
 
         extras = QHBoxLayout()
+        extras.setSpacing(6)
         extras.addWidget(QLabel("Examples:"))
         self.shell_examples = QComboBox()
         self.shell_examples.addItems([
@@ -680,9 +1003,11 @@ class MainWindow(QMainWindow):
     def _build_apps_tab(self):
         page = QWidget()
         layout = QVBoxLayout(page)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(8)
 
         top = QHBoxLayout()
+        top.setSpacing(6)
         self.apps_filter = QLineEdit()
         self.apps_filter.setPlaceholderText("Filter packages...")
         self.apps_filter.textChanged.connect(lambda _text: self._populate_apps())
@@ -691,28 +1016,42 @@ class MainWindow(QMainWindow):
         self.apps_system.stateChanged.connect(lambda _state: self._populate_apps())
         top.addWidget(self.apps_system)
         refresh = QPushButton("Refresh")
+        refresh.setIcon(self._icon("refresh"))
         refresh.clicked.connect(self.load_apps)
         top.addWidget(refresh)
         install = QPushButton("Install APK...")
+        install.setIcon(self._icon("download"))
         install.clicked.connect(self.install_apk)
         top.addWidget(install)
         layout.addLayout(top)
 
         self.apps_table = QTableWidget(0, 2)
         self.apps_table.setHorizontalHeaderLabels(["Package", "Type"])
+        self.apps_table.horizontalHeaderItem(0).setTextAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        self.apps_table.horizontalHeaderItem(1).setTextAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         header = self.apps_table.horizontalHeader()
+        header.setDefaultAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        header.setHighlightSections(False)
         self.apps_table.verticalHeader().setVisible(False)
+        self.apps_table.verticalHeader().setDefaultSectionSize(27)
         self.apps_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.apps_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.apps_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.apps_table.setAlternatingRowColors(True)
+        self.apps_table.setShowGrid(False)
+        self.apps_table.setWordWrap(False)
         self.apps_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.apps_table.customContextMenuRequested.connect(self._apps_menu)
         self.apps_table.cellDoubleClicked.connect(lambda _r, _c: self.launch_app())
         layout.addWidget(self.apps_table, 1)
 
         actions = QHBoxLayout()
+        actions.setSpacing(6)
         for label, slot in (("Launch", self.launch_app),
                             ("Force stop", self.force_stop_app),
                             ("Clear data", self.clear_app_data),
@@ -720,8 +1059,13 @@ class MainWindow(QMainWindow):
                             ("Uninstall", self.uninstall_app)):
             button = QPushButton(label)
             button.clicked.connect(slot)
+            if label in ("Clear data", "Uninstall"):
+                button.setStyleSheet(f"color: {self._danger};")
+                button.setIcon(self._danger_icon("trash"))
             actions.addWidget(button)
         self.apps_count = QLabel("0 packages")
+        self.apps_count.setStyleSheet(
+            f"color: {self.palette().color(QPalette.ColorRole.PlaceholderText).name()};")
         actions.addStretch(1)
         actions.addWidget(self.apps_count)
         layout.addLayout(actions)
@@ -730,22 +1074,33 @@ class MainWindow(QMainWindow):
     def _build_logcat_tab(self):
         page = QWidget()
         layout = QVBoxLayout(page)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(8)
 
         top = QHBoxLayout()
+        top.setSpacing(6)
         self.logcat_btn = QPushButton("Start")
+        self.logcat_btn.setIcon(self._icon("play"))
         self.logcat_btn.clicked.connect(self._toggle_logcat)
         top.addWidget(self.logcat_btn)
         clear = QPushButton("Clear")
+        clear.setIcon(self._icon("clear"))
         clear.clicked.connect(self.clear_logcat)
         top.addWidget(clear)
         save = QPushButton("Save...")
+        save.setIcon(self._icon("save"))
         save.clicked.connect(self.save_logcat)
         top.addWidget(save)
         self.logcat_auto = QCheckBox("Auto-scroll")
         self.logcat_auto.setChecked(True)
         top.addWidget(self.logcat_auto)
         top.addStretch(1)
+        self.logcat_status = QLabel("stopped")
+        self.logcat_status.setMinimumWidth(64)
+        self.logcat_status.setAlignment(
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        top.addWidget(self.logcat_status)
+        top.addSpacing(12)
         top.addWidget(QLabel("Filter:"))
         self.logcat_filter = QLineEdit()
         self.logcat_filter.setPlaceholderText("case-insensitive text...")
@@ -756,32 +1111,37 @@ class MainWindow(QMainWindow):
         self.logcat_view = QPlainTextEdit()
         self.logcat_view.setReadOnly(True)
         self.logcat_view.setMaximumBlockCount(20000)
+        self.logcat_view.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
         self.logcat_view.setPlaceholderText("Start logcat to stream device logs.")
         monospace(self.logcat_view)
         layout.addWidget(self.logcat_view, 1)
 
-        self.logcat_status = QLabel("stopped")
-        layout.addWidget(self.logcat_status)
-
         self.logcat = None
-        self.logcat_status = QLabel("stopped")
-        layout.addWidget(self.logcat_status)
+        self._set_logcat_state("stopped")
         return page
 
     def _build_log_panel(self):
         panel = QWidget()
         layout = QVBoxLayout(panel)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(8, 4, 8, 8)
+        layout.setSpacing(4)
         row = QHBoxLayout()
         row.addWidget(QLabel("<b>Command log</b>"))
         row.addStretch(1)
+        copy = QPushButton("Copy")
+        copy.setIcon(self._icon("copy"))
+        copy.clicked.connect(
+            lambda: QApplication.clipboard().setText(self.log.toPlainText()))
+        row.addWidget(copy)
         clear = QPushButton("Clear")
+        clear.setIcon(self._icon("clear"))
         clear.clicked.connect(lambda: self.log.clear())
         row.addWidget(clear)
         layout.addLayout(row)
         self.log = QPlainTextEdit()
         self.log.setReadOnly(True)
         self.log.setMaximumBlockCount(5000)
+        self.log.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
         self.log.setPlaceholderText("Every adb command and its output appears here.")
         monospace(self.log)
         layout.addWidget(self.log)
@@ -792,8 +1152,8 @@ class MainWindow(QMainWindow):
         geometry = settings.value("geometry")
         if geometry is not None:
             self.restoreGeometry(geometry)
-        for key, splitter in (("main_splitter", self.main_split),
-                              ("top_splitter", self.top_split)):
+        for key, splitter in (("main_splitter_v2", self.main_split),
+                              ("top_splitter_v2", self.top_split)):
             state = settings.value(key)
             if state is not None:
                 splitter.restoreState(state)
@@ -857,13 +1217,17 @@ class MainWindow(QMainWindow):
         return True
 
     def _update_device_label(self):
-        if self.serial:
+        name = self.selected_device.display_name if self.selected_device else ""
+        if self.serial and name:
+            text = f"Device: {name}  \u00b7  {self.serial}"
+        elif self.serial:
             text = f"Device: {self.serial}"
         else:
             text = "No device selected"
         if not self.adb.path:
-            text += "  |  adb not found"
+            text += "  \u00b7  adb not found"
         self.device_label.setText(text)
+        self.device_label.setToolTip(self.serial or "")
 
     # ------------------------------------------------------------ adb path
     def pick_adb(self):
@@ -924,14 +1288,9 @@ class MainWindow(QMainWindow):
         self.device_list.blockSignals(True)
         self.device_list.clear()
         for dev in devices:
-            title = dev.serial
-            if dev.display_name:
-                title += "  -  " + dev.display_name
-            details = [dev.state]
-            if dev.transport:
-                details.append("usb:" + dev.transport)
-            item = QListWidgetItem(title + "\n    " + "  ".join(details))
+            item = QListWidgetItem()
             item.setData(Qt.ItemDataRole.UserRole, dev)
+            item.setSizeHint(QSize(0, 56))
             tooltip = [f"serial: {dev.serial}", f"state: {dev.state}"]
             for name, value in (("model", dev.model), ("product", dev.product),
                                 ("device", dev.device), ("usb", dev.transport)):
@@ -941,6 +1300,7 @@ class MainWindow(QMainWindow):
                 tooltip.append(dev.extra)
             item.setToolTip("\n".join(tooltip))
             self.device_list.addItem(item)
+            self.device_list.setItemWidget(item, DeviceRow(dev, self.device_list))
         self.device_list.blockSignals(False)
 
         target = None
@@ -954,6 +1314,7 @@ class MainWindow(QMainWindow):
             self.device_list.setCurrentItem(target)
         elif previous:
             self.serial = None
+            self.selected_device = None
             self._stop_logcat()
             self.clear_files()
             self._reset_apps()
@@ -968,9 +1329,19 @@ class MainWindow(QMainWindow):
             if len(usable) == 1:
                 self.device_list.setCurrentRow(usable[0])
 
+        self._sync_device_rows()
         self._update_device_label()
 
+    def _sync_device_rows(self):
+        current = self.device_list.currentItem()
+        for row in range(self.device_list.count()):
+            item = self.device_list.item(row)
+            widget = self.device_list.itemWidget(item)
+            if isinstance(widget, DeviceRow):
+                widget.set_selected(item is current)
+
     def on_device_selected(self, item, _previous=None):
+        self._sync_device_rows()
         if item is None:
             return
         dev = item.data(Qt.ItemDataRole.UserRole)
@@ -979,6 +1350,7 @@ class MainWindow(QMainWindow):
 
         if not dev.usable:
             self.serial = None
+            self.selected_device = None
             self._stop_logcat()
             self.clear_files()
             self._reset_apps()
@@ -992,6 +1364,7 @@ class MainWindow(QMainWindow):
         changed = dev.serial != self.serial
         was_streaming = self._logcat_running()
         self.serial = dev.serial
+        self.selected_device = dev
         if changed:
             self.cwd = "/sdcard"
             self.shell_cwd = "/sdcard"
@@ -1002,7 +1375,7 @@ class MainWindow(QMainWindow):
                 QTimer.singleShot(0, self._start_logcat)
 
         self._update_device_label()
-        self.setWindowTitle(f"{APP_NAME} - {dev.serial}")
+        self.setWindowTitle(f"{APP_NAME} - {dev.display_name or dev.serial}")
         self.goto(self.cwd)
         if self.tabs.currentWidget() is self.apps_tab:
             self.load_apps()
@@ -1118,9 +1491,14 @@ class MainWindow(QMainWindow):
             if entry.is_link and entry.link_target:
                 name_item.setToolTip(f"symlink -> {entry.link_target}")
             self.file_table.setItem(row, 0, name_item)
-            self.file_table.setItem(row, 1, QTableWidgetItem(
-                "" if entry.is_dir else human_size(entry.size)))
-            self.file_table.setItem(row, 2, QTableWidgetItem(entry.modified))
+            size_item = QTableWidgetItem("" if entry.is_dir else human_size(entry.size))
+            size_item.setTextAlignment(
+                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            self.file_table.setItem(row, 1, size_item)
+            modified_item = QTableWidgetItem(entry.modified)
+            modified_item.setTextAlignment(
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+            self.file_table.setItem(row, 2, modified_item)
 
     def selected_entries(self):
         rows = sorted({index.row() for index in self.file_table.selectedIndexes()})
@@ -1376,7 +1754,7 @@ class MainWindow(QMainWindow):
             self._all_packages = parse_packages(result.out)
             self._apps_loaded = True
             self._populate_apps()
-            self.status.showMessage(f"{len(self._all_packages)} packages")
+            self.status.showMessage(f"{len(self._all_packages)} packages", 4000)
 
         self.run_async(["shell", "pm list packages -f"], serial=serial, after=after,
                        timeout=180, log_cmd=False, log_output=False)
@@ -1550,7 +1928,6 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Logcat", "adb not found. Set the adb path first.")
             return
         self._logcat_lines.clear()
-        self._logcat_partial = ""
         self.logcat_view.clear()
         self.log_line("$ " + self.adb.display(["logcat", "-v", "time"], self.serial))
 
@@ -1561,14 +1938,29 @@ class MainWindow(QMainWindow):
         stream.finished.connect(lambda s=stream: self._on_logcat_finished(s))
         self.logcat = stream
         self._logcat_failed = False
-        self.logcat_status.setText("starting...")
+        self._set_logcat_state("starting", "#9a6700" if not is_dark(self) else "#d29922",
+                               "connecting to the device")
         stream.start()
+
+    def _set_logcat_button(self, running):
+        self.logcat_btn.setText("Stop" if running else "Start")
+        self.logcat_btn.setIcon(self._icon("stop" if running else "play"))
+
+    def _set_logcat_state(self, text, color=None, tooltip=""):
+        if color is None:
+            color = self.palette().color(QPalette.ColorRole.PlaceholderText).name()
+        self.logcat_status.setText(text)
+        self.logcat_status.setToolTip(tooltip or text)
+        self.logcat_status.setStyleSheet(
+            f"color: {color}; font-size: 11px; font-weight: 600;")
 
     def _on_logcat_started(self, stream):
         if self.logcat is not stream:
             return
-        self.logcat_btn.setText("Stop")
-        self.logcat_status.setText(f"streaming from {self.serial}")
+        self._set_logcat_button(True)
+        self._set_logcat_state(
+            "streaming", "#1a7f37" if not is_dark(self) else "#3fb950",
+            f"streaming from {self.serial}")
 
     def _on_logcat_lines(self, stream, lines):
         if self.logcat is stream:
@@ -1578,25 +1970,27 @@ class MainWindow(QMainWindow):
         if self.logcat is not stream:
             return
         self.logcat = None
-        self.logcat_btn.setText("Start")
+        self._set_logcat_button(False)
         if self._logcat_failed:
-            self.logcat_status.setText("logcat error")
+            self._set_logcat_state(
+                "error", "#cf222e" if not is_dark(self) else "#f85149")
         else:
-            self.logcat_status.setText("stopped" if self.serial else "no device")
+            self._set_logcat_state("stopped" if self.serial else "no device")
 
     def _stop_logcat(self):
         stream = self.logcat
         self.logcat = None
         if stream is not None:
             stream.stop()
-        self.logcat_btn.setText("Start")
-        self.logcat_status.setText("stopped" if self.serial else "no device")
+        self._set_logcat_button(False)
+        self._set_logcat_state("stopped" if self.serial else "no device")
 
     def _logcat_error(self, message):
         self._logcat_failed = True
         self.log_line("[logcat] " + message)
-        self.logcat_status.setText("logcat error")
-        self.logcat_btn.setText("Start")
+        self._set_logcat_state(
+            "error", "#cf222e" if not is_dark(self) else "#f85149", message)
+        self._set_logcat_button(False)
 
     def _append_logcat_lines(self, lines):
         needle = self.logcat_filter.text().strip().lower()
@@ -1626,7 +2020,6 @@ class MainWindow(QMainWindow):
 
     def clear_logcat(self):
         self._logcat_lines.clear()
-        self._logcat_partial = ""
         self.logcat_view.clear()
 
     def save_logcat(self):
@@ -1720,8 +2113,8 @@ class MainWindow(QMainWindow):
         self._stop_logcat()
         settings = QSettings()
         settings.setValue("geometry", self.saveGeometry())
-        settings.setValue("main_splitter", self.main_split.saveState())
-        settings.setValue("top_splitter", self.top_split.saveState())
+        settings.setValue("main_splitter_v2", self.main_split.saveState())
+        settings.setValue("top_splitter_v2", self.top_split.saveState())
         settings.setValue("adb_path", self.adb.path)
         super().closeEvent(event)
 
@@ -1759,7 +2152,6 @@ def main():
     app = QApplication(sys.argv)
     app.setApplicationName("adb-gui")
     app.setOrganizationName("adb-gui")
-    app.setApplicationDisplayName(APP_NAME)
     window = MainWindow()
     window.show()
     sys.exit(app.exec())

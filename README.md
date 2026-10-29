@@ -4,6 +4,8 @@ A desktop front end for [Android Debug Bridge](https://developer.android.com/too
 built with Python and PySide6. It wraps the everyday adb commands in a single
 window so you do not have to remember flags, serials or shell quoting.
 
+![ADB GUI](docs/screenshot.png)
+
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue)
 ![PySide6](https://img.shields.io/badge/PySide6-6.x-green)
 
@@ -22,6 +24,9 @@ window so you do not have to remember flags, serials or shell quoting.
   stop, clear data, open Android app settings and uninstall.
 - **Logcat** - live streaming from the device with a case-insensitive filter,
   auto-scroll, clear and save.
+
+  ![Live logcat](docs/logcat.png)
+
 - **Device tools** - screenshot with preview/save, device info (model, Android
   version, ABI, screen, battery, storage, Wi-Fi IP) and reboot to system,
   recovery or bootloader.
