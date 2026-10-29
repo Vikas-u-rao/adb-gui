@@ -128,5 +128,4 @@ build.ps1         convenience build script
 
 ## License
 
-No license file is included yet. Add one before distributing the project if you
-intend it to be open source.
+MIT
